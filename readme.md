@@ -1,5 +1,12 @@
 # ⛏️ Ice Axe
 
+## Contributors
+Made by [Dune Group](https://github.com/DuneGroup) with ❤️ in California
+* [Jacolon Walker](https://github.com/orgs/DuneGroup/people/jwalker)
+* [Jacob Salassi](https://github.com/orgs/DuneGroup/people/jacob-salassi)
+* [Michele Freschi](https://github.com/orgs/DuneGroup/people/mfreschi-dg)
+
+
 ## Description
 Ice Axe is a Snowflake Native Application designed to provide insights into Snowflake account activities that may be potential threats. It enables users to efficiently audit and monitor login history, user activities, and system usage. 
 
