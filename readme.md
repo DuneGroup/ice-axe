@@ -27,8 +27,8 @@ password = ...
 ```
 Run the following commands
 ```bash
-git clone https://github.com/DuneGroup/ICE_AXE.git iceaxe
-cd iceaxe
+git clone https://github.com/DuneGroup/ice-axe.git
+cd ice-axe
 pip install -r requirements.txt
 ```
 
