@@ -1,0 +1,8 @@
+name: sf_env
+channels: 
+- snowflake
+dependencies: 
+- snowflake-native-apps-permission
+- plotly
+- streamlit-folium
+- pandas

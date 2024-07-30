@@ -1,0 +1,18 @@
+manifest_version: 1
+version:
+  name: ice_axe
+  label: "v1.0"
+  comment: "Ice Axe"
+
+artifacts:
+  readme: readme.md
+  setup_script: scripts/setup.sql
+  extension_code: true
+
+configuration:
+  log_level: debug
+  trace_level: always
+
+privileges:
+  - IMPORTED PRIVILEGES ON SNOWFLAKE DB:
+      description: "To access account_usage views"

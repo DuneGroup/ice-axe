@@ -1,0 +1,4 @@
+numpy==2.0.1
+pandas==2.2.2
+snowflake_connector_python==3.11.0
+snowflake_snowpark_python==1.11.1
