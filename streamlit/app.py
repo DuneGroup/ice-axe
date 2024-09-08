@@ -36,6 +36,7 @@ except SnowparkSessionException:
     else:
         raise
 
+
 def main():
 
     st.set_page_config(layout="wide")
@@ -46,18 +47,27 @@ def main():
     with st.sidebar:
 
         st.header("Filters")
+        max_ts = metrics.query_history.max_analysis_end_time()
         start_date = st.date_input('Start date', value=pd.to_datetime('today')-datetime.timedelta(days=7))
+        end_date = st.date_input('End date', value=pd.to_datetime('today'), max_value=max_ts)
 
-        end_date = st.date_input('End date', value=pd.to_datetime('today'))
+    analytics.leads.generate_leads_results(start_date, end_date)
+    leads_df = analytics.leads.get_results()
 
-    summary_tab, leads_tab, user_activity_tab = st.tabs(['Summary', 'Leads Details', 'User Activity Details'])
+    st.write(leads_df)
 
-    query_history_df = metrics.query_history.get_for_dates(start_date=start_date, end_date=end_date)
+    st.write("Made with ❤️ in California by [Dune Group](https://dunegroup.xyz)")
+
+
     
-    all_threat_leads = analytics.leads.get_all_leads(query_history_df)
-    all_threats_masks = [lead['mask'] for lead in all_threat_leads]
-    all_threats_df = query_history_df[np.logical_or.reduce(all_threats_masks)]
+    #summary_tab, leads_tab, user_activity_tab = st.tabs(['Summary', 'Leads Details', 'User Activity Details'])
 
+    #query_history_df = metrics.query_history.get_for_dates(start_date=start_date, end_date=end_date)
+    #all_threat_leads = analytics.leads.get_all_leads(query_history_df)
+    #all_threats_masks = [lead['mask'] for lead in all_threat_leads]
+    #all_threats_df = query_history_df[np.logical_or.reduce(all_threats_masks)]
+
+'''
     with summary_tab:
         
         # Level 1: Top level KPIs
@@ -147,6 +157,7 @@ def main():
         st.dataframe(all_threats_df)
 
     st.write("Made with ❤️ in California by [Dune Group](https://dunegroup.xyz)")
-
+'''
+    
 
 main()

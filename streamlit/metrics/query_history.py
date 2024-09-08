@@ -4,6 +4,34 @@ from snowflake.snowpark.context import get_active_session
 
 
 @st.cache_data
+def max_analysis_end_time():
+    """
+    SNOWFLAKE.ACCOUNT_USAGE tables are updated at different frequency, we
+    can't analyze events for which we don't have data in all three tables.
+    """
+    session = get_active_session()
+
+    res = session.sql('''
+            WITH dataset_watermark as (
+                select 'SESSIONS' as DATASET_NAME
+                    , max(CREATED_ON) as LAST_TS
+                from SNOWFLAKE.ACCOUNT_USAGE.SESSIONS
+                UNION
+                select 'QUERY_HISTORY' as DATASET_NAME
+                    , max(START_TIME) as LAST_TS
+                from SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+                UNION
+                select 'LOGIN_HISTORY' as DATASET_NAME
+                    , max(EVENT_TIMESTAMP) as LAST_TS
+                from SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY l
+            )
+            select min(LAST_TS) as MAX_ALLOWED_TS from dataset_watermark;
+    ''').collect()
+
+    return res[0]['MAX_ALLOWED_TS']
+
+
+@st.cache_data
 def get_for_dates(start_date, end_date):
     session = get_active_session()
 
@@ -35,8 +63,7 @@ def get_for_dates(start_date, end_date):
             from SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY h
             left JOIN SNOWFLAKE.ACCOUNT_USAGE.SESSIONS s on h.SESSION_ID = s.SESSION_ID
             left join SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY l on s.LOGIN_EVENT_ID = l.EVENT_ID
-            where h.user_name not in ('WORKSHEETS_APP_USER') // internal snowflake user
-            and LOGIN_IP != '0.0.0.0' // internal snowflake activity
+            where h.user_name not in ('WORKSHEETS_APP_USER', 'SNOWFLAKE') // internal snowflake user
             and session_auth is not null // filter out snow generate sql queries that don't have a session id present in ACCOUNT_USAGE.SESSIONS
             and START_TIME BETWEEN ? and ?
             order by START_TIME DESC""", 

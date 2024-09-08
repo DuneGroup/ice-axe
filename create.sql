@@ -9,9 +9,10 @@ SHOW APPLICATION PACKAGES;
 
 -- Setting up for application staging
 USE APPLICATION PACKAGE ICE_AXE_PACKAGE;
-CREATE SCHEMA STAGE_CONTENT;
 
 -- Creating a stage for the application package
+CREATE SCHEMA STAGE_CONTENT;
+
 CREATE OR REPLACE STAGE ICE_AXE_PACKAGE.STAGE_CONTENT.ICE_AXE_stage
   FILE_FORMAT = (TYPE = 'csv' FIELD_DELIMITER = '|' SKIP_HEADER = 1);
 
@@ -31,6 +32,19 @@ PUT file://readme.md @ICE_AXE_PACKAGE.STAGE_CONTENT.ICE_AXE_STAGE overwrite=true
 -- Listing files in the created stage
 LIST @ICE_AXE_PACKAGE.STAGE_CONTENT.ICE_AXE_STAGE;
 
+-- create table to hold leads
+CREATE OR REPLACE SCHEMA results;
+create or replace table results.leads(QUERY_ID varchar, lead_name varchar);
+
+-- creating Python UDFT
+create or replace function results.detector(query_id varchar, query_type varchar, query_text varchar)
+returns table (query_id varchar, lead_name varchar)
+language python
+runtime_version=3.11
+IMPORTS = ('@ICE_AXE_PACKAGE.STAGE_CONTENT.ICE_AXE_STAGE/streamlit/analytics/udf.py')
+handler='udf.LeadsDetector'
+;
+
 -- Installing the application
 CREATE APPLICATION ICE_AXE_APP
   FROM APPLICATION PACKAGE ICE_AXE_PACKAGE
@@ -38,3 +52,5 @@ CREATE APPLICATION ICE_AXE_APP
 
 -- Verifying the installed applications
 SHOW APPLICATIONS;
+
+
