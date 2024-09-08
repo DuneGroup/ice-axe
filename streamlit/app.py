@@ -52,22 +52,10 @@ def main():
         end_date = st.date_input('End date', value=pd.to_datetime('today'), max_value=max_ts)
 
     analytics.leads.generate_leads_results(start_date, end_date)
-    leads_df = analytics.leads.get_results()
+    all_threats_df = analytics.leads.get_results()
 
-    st.write(leads_df)
+    summary_tab, leads_tab, user_activity_tab = st.tabs(['Summary', 'Leads Details', 'User Activity Details'])
 
-    st.write("Made with ❤️ in California by [Dune Group](https://dunegroup.xyz)")
-
-
-    
-    #summary_tab, leads_tab, user_activity_tab = st.tabs(['Summary', 'Leads Details', 'User Activity Details'])
-
-    #query_history_df = metrics.query_history.get_for_dates(start_date=start_date, end_date=end_date)
-    #all_threat_leads = analytics.leads.get_all_leads(query_history_df)
-    #all_threats_masks = [lead['mask'] for lead in all_threat_leads]
-    #all_threats_df = query_history_df[np.logical_or.reduce(all_threats_masks)]
-
-'''
     with summary_tab:
         
         # Level 1: Top level KPIs
@@ -93,8 +81,9 @@ def main():
             )
 
             st.header('Unusual Apps')
-            unusual_apps = query_history_df.groupby('CLIENT_APPLICATION')['SESSION_ID'].nunique().reset_index(name='Session Count').sort_values('Session Count').head(10).reset_index(drop=True)
-            st.dataframe(unusual_apps)
+            # TODO
+            #unusual_apps = query_history_df.groupby('CLIENT_APPLICATION')['SESSION_ID'].nunique().reset_index(name='Session Count').sort_values('Session Count').head(10).reset_index(drop=True)
+            #st.dataframe(unusual_apps)
 
     with user_activity_tab:
         # Level 2: Trends & Patterns
@@ -115,28 +104,29 @@ def main():
         with st.expander('Login History', expanded=True):
             st.dataframe(login_data)
 
-        with st.expander("Query History", expanded=True):
-            if user_search is not None:
-                query_data_display = query_history_df[query_history_df['USER_NAME'] == user_search]
-            else:
-                query_data_display = query_history_df
-            query_data_display.sort_values('START_TIME', ascending=False, inplace=True)
-            st.dataframe(query_data_display)
+        # TODO: rewrite
+        #with st.expander("Query History", expanded=True):
+        #    if user_search is not None:
+        #        query_data_display = query_history_df[query_history_df['USER_NAME'] == user_search]
+        #    else:
+        #        query_data_display = query_history_df
+        #    query_data_display.sort_values('START_TIME', ascending=False, inplace=True)
+        #    st.dataframe(query_data_display)
 
     with leads_tab:
         # Level 3: Details for investigation
         technique_names = analytics.leads.get_all_leads_techniques()
         techniques_selected = st.multiselect('Show Technique Leads', options=technique_names, default=technique_names)
         
-        for lead_result in all_threat_leads:
-            if lead_result['technique'] not in techniques_selected:
-                continue
-            
-            threat_mask = lead_result['mask']
-            threat_df = query_history_df[threat_mask]
+        for technique in techniques_selected:
+            lead_names = analytics.leads.get_lead_names_by_technique(technique)
+
+            # TODO: probably can be done in one step
+            technique_mask = all_threats_df['LEAD_NAME'].isin(lead_names)
+            threats_df = all_threats_df[technique_mask]
 
             has_threats = False
-            if threat_df.shape[0] > 0:
+            if threats_df.shape[0] > 0:
                 icon = "❗"
                 expanded = True
                 has_threats = True
@@ -146,10 +136,10 @@ def main():
             
             #TODO: Native Apps does not support latest streamlit APIs yet, so store icon in the name
             #with st.expander(lead_result['name'], expanded=expanded, icon=icon):
-            with st.expander("{} {}".format(icon, lead_result['name']), expanded=expanded):
-                st.write(lead_result['description'])
+            with st.expander("{} {}".format(icon, technique), expanded=expanded):
+                #st.write(lead_result['description'])
                 if has_threats:
-                    st.dataframe(threat_df)
+                    st.dataframe(threats_df)
                 else:
                     st.write("_None found_")
 
@@ -157,7 +147,6 @@ def main():
         st.dataframe(all_threats_df)
 
     st.write("Made with ❤️ in California by [Dune Group](https://dunegroup.xyz)")
-'''
-    
+
 
 main()

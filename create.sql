@@ -1,6 +1,9 @@
 -- Granting privileges to create an application package
 GRANT CREATE APPLICATION PACKAGE ON ACCOUNT TO ROLE accountadmin;
 
+--CREATE DATABASE IF NOT EXISTS ICE_AXE_DB;
+--USE DATABASE ICE_AXE_DB;
+
 -- Creating a new application package
 CREATE APPLICATION PACKAGE ICE_AXE_PACKAGE;
 
@@ -31,19 +34,6 @@ PUT file://readme.md @ICE_AXE_PACKAGE.STAGE_CONTENT.ICE_AXE_STAGE overwrite=true
 
 -- Listing files in the created stage
 LIST @ICE_AXE_PACKAGE.STAGE_CONTENT.ICE_AXE_STAGE;
-
--- create table to hold leads
-CREATE OR REPLACE SCHEMA results;
-create or replace table results.leads(QUERY_ID varchar, lead_name varchar);
-
--- creating Python UDFT
-create or replace function results.detector(query_id varchar, query_type varchar, query_text varchar)
-returns table (query_id varchar, lead_name varchar)
-language python
-runtime_version=3.11
-IMPORTS = ('@ICE_AXE_PACKAGE.STAGE_CONTENT.ICE_AXE_STAGE/streamlit/analytics/udf.py')
-handler='udf.LeadsDetector'
-;
 
 -- Installing the application
 CREATE APPLICATION ICE_AXE_APP

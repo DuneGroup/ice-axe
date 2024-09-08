@@ -1,5 +1,5 @@
 from snowflake.snowpark.context import get_active_session
-#from udf import UDF_THREAT_LEADS
+from analytics.udf import UDF_THREAT_LEADS
 
 # SQL LEADS
 def ioc_apps():
@@ -50,8 +50,8 @@ def ten_largest_unloads():
         limit 10;
     '''
 
+
 SQL_THREAT_LEADS = [
-    
     {
         "type": "sql",
         "name": "10_largest_queries",
@@ -86,33 +86,69 @@ SQL_THREAT_LEADS = [
     }
 ]
 
-THREAT_LEADS = SQL_THREAT_LEADS #+ UDF_THREAT_LEADS
+THREAT_LEADS = SQL_THREAT_LEADS + UDF_THREAT_LEADS
 
-# TODO: fix table location 
-# probably this table needs to be create by the native app
+
 def generate_leads_results(start_date, end_date):
     session = get_active_session()
 
-    res = session.sql('''
+    # TODO: we don't want to insert duplicate when start-end time are changed
+    # or we need to change the logic to not insert duplicates
+    session.sql('TRUNCATE TABLE results.leads').collect()
+
+    session.sql('''
     INSERT INTO results.leads
         select h.QUERY_ID
-        , detector.lead_name
+               , h.user_name
+               , detector.lead_name
         from SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY h
-            , table(results.detector(QUERY_ID, QUERY_TYPE, QUERY_TEXT))
-        WHERE START_TIME >= ? AND START_TIME <= ?;
+            , table(ice_axe_app.code_schema.detector(QUERY_ID, QUERY_TYPE, QUERY_TEXT))
+        WHERE START_TIME >= ? AND START_TIME <= ?
+        AND h.user_name not in ('WORKSHEETS_APP_USER', 'SNOWFLAKE', 'SYSTEM');
     ''', params=[start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d %H:%M:%S %Z')]).collect()
 
 
 def get_results():
     session = get_active_session()
 
-    leads_df = session.sql('SELECT QUERY_ID, lead_name FROM results.leads').to_pandas(block=True)
+    leads_df = session.sql('''
+            select r.lead_name
+                , START_TIME
+                , h.USER_NAME
+                , s.authentication_method as SESSION_AUTH
+                , s.session_id
+                , l.reported_client_type as LOGIN_CLIENT_TYPE
+                , s.CLIENT_APPLICATION_ID AS SESSION_CLIENT_APP
+                , s.CLIENT_APPLICATION_VERSION AS SESSION_CLIENT_VERSION
+                , l.reported_client_version as LOGIN_CLIENT_VERSION
+                , s.CLIENT_ENVIRONMENT AS RAW_CLIENT_ENV
+                , PARSE_JSON(RAW_CLIENT_ENV) as CLIENT_ENV
+                , CLIENT_ENV:APPLICATION::STRING AS client_application
+                , CLIENT_ENV:OS::STRING AS client_os
+                , CLIENT_ENV:OS_VERSION::STRING AS client_os_version
+                , l.CLIENT_IP as LOGIN_IP
+                , l.event_timestamp as LOGIN_TIMESTAMP
+                , ROLE_NAME
+                , r.QUERY_ID
+                , QUERY_TYPE
+                , QUERY_TEXT
+                , execution_status
+            from results.leads r
+            left join SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY h on r.query_id = h.query_id
+            left JOIN SNOWFLAKE.ACCOUNT_USAGE.SESSIONS s on h.SESSION_ID = s.SESSION_ID
+            left join SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY l on s.LOGIN_EVENT_ID = l.EVENT_ID
+            and session_auth is not null // filter out snow generate sql queries that don't have a session id present in ACCOUNT_USAGE.SESSIONS
+            order by START_TIME DESC''').to_pandas(block=True)
 
     return leads_df
 
 
 def get_all_leads_names():
     return [lead['name'] for lead in THREAT_LEADS]
+
+
+def get_lead_names_by_technique(technique_name):
+    return [lead['name'] for lead in THREAT_LEADS if lead['mitre_technique_description'] == technique_name]
 
 
 def get_all_leads_techniques():

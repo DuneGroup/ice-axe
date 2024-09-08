@@ -16,3 +16,5 @@ configuration:
 privileges:
   - IMPORTED PRIVILEGES ON SNOWFLAKE DB:
       description: "To access account_usage views"
+
+

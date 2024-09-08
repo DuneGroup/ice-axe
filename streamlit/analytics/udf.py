@@ -1,6 +1,6 @@
 import re
 
-# UDF LEADS
+
 def show_tables(query_text):    
     return re.search(r'SHOW\s+TABLES', query_text, re.I) is not None
 
@@ -22,7 +22,7 @@ def get_file(query_text):
 
 
 def copy_into_select_all(query_text):
-    return re.search(r"COPY\s+INTO.*SELECT\s+*", query_text, re.I) is not None
+    return re.search(r"COPY\s+INTO.*SELECT\s+\*", query_text, re.I) is not None
 
 
 def create_ext_volume(query_text):
@@ -122,3 +122,5 @@ class LeadsDetector:
 
         if no_hits:
             yield None
+
+
