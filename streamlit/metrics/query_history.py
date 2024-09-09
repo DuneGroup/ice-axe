@@ -30,6 +30,25 @@ def max_analysis_end_time():
 
     return res[0]['MAX_ALLOWED_TS']
 
+@st.cache_data
+def least_common_app(start_date, end_date):
+    session = get_active_session()
+
+    df = session.sql('''
+        select PARSE_JSON(CLIENT_ENVIRONMENT):APPLICATION::STRING AS CLIENT_APPLICATION
+            , count(DISTINCT SESSION_ID) as SESSION_COUNT
+        from SNOWFLAKE.ACCOUNT_USAGE.SESSIONS
+        where USER_NAME not in ('WORKSHEETS_APP_USER', 'SNOWFLAKE', 'SYSTEM')
+        and CREATED_ON >= ? and CREATED_ON <= ?
+        group by 1;
+    ''', params=[
+        start_date.strftime('%Y-%m-%d'),
+        end_date.strftime('%Y-%m-%d %H:%M:%S %Z')]
+    ).to_pandas(block=True)
+
+    return df
+
+
 
 @st.cache_data
 def get_for_dates(start_date, end_date):

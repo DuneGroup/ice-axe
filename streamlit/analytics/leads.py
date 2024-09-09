@@ -1,54 +1,67 @@
 from snowflake.snowpark.context import get_active_session
 from analytics.udf import UDF_THREAT_LEADS
+import streamlit as st
+
 
 # SQL LEADS
-def ioc_apps():
-    query = '''
-        select  h.query_id, 
-                h.user_name,
-                'ioc_app_name' as lead_name
-        from SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY h
-        left JOIN SNOWFLAKE.ACCOUNT_USAGE.SESSIONS s on h.SESSION_ID = s.SESSION_ID
-        where h.user_name not in ('WORKSHEETS_APP_USER', 'SNOWFLAKE')
-        and s.authentication_method is not null
-        and PARSE_JSON(s.CLIENT_ENVIRONMENT):APPLICATION::STRING  IN ('rapeflake', 'DBeaver_DBeaverUltimate');
-    '''
+def ioc_apps(start_date, end_date):
+    session = get_active_session()
 
-def least_common_app():
-    query = '''
-        select PARSE_JSON(CLIENT_ENVIRONMENT):APPLICATION::STRING AS CLIENT_APPLICATION
-            , count(DISTINCT SESSION_ID) as SESSION_COUNT
-        from SNOWFLAKE.ACCOUNT_USAGE.SESSIONS
-        where USER_NAME != 'SNOWFLAKE'
-        group by 1
-        order by SESSION_COUNT asc
-    '''
+    session.sql('''
+        INSERT INTO results.leads
+            select  h.query_id, 
+                    h.user_name,
+                    'ioc_apps' as lead_name
+            from SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY h
+            left JOIN SNOWFLAKE.ACCOUNT_USAGE.SESSIONS s on h.SESSION_ID = s.SESSION_ID
+            where h.user_name not in ('WORKSHEETS_APP_USER', 'SNOWFLAKE', 'SYSTEM')
+            and s.authentication_method is not null
+            and PARSE_JSON(s.CLIENT_ENVIRONMENT):APPLICATION::STRING  IN ('rapeflake', 'DBeaver_DBeaverUltimate')
+            and h.start_time >= ? and h.start_time <= ?;
+    ''', params=[
+        start_date.strftime('%Y-%m-%d'),
+        end_date.strftime('%Y-%m-%d %H:%M:%S %Z')]
+    ).collect()
 
-def ten_largest_queries():
-    query = '''
-        SELECT QUERY_ID
-            , USER_NAME
-            , 'ten_largest_queries' AS lead_name
-        FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-        where ROWS_PRODUCED is not NULL
-        ORDER BY ROWS_PRODUCED DESC
-        limit 10;
-    '''
 
-def ten_largest_unloads():
-    query = '''
-        SELECT QUERY_ID
-            , USER_NAME
-            , QUERY_TEXT
-            , ROWS_UNLOADED
-            , 'top_10_rows_unloaded' AS lead_name
-        FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-        where ROWS_UNLOADED is not NULL
-        and ROWS_UNLOADED > 0
-        and user_name not in ('SYSTEM', 'SNOWFLAKE' )
-        ORDER BY ROWS_UNLOADED DESC
-        limit 10;
-    '''
+def ten_largest_queries(start_date, end_date):
+    session = get_active_session()
+
+    session.sql('''
+        INSERT INTO results.leads
+            SELECT QUERY_ID
+                , USER_NAME
+                , '10_largest_queries' AS lead_name
+            FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+            where ROWS_PRODUCED is not NULL
+            and start_time >= ? and start_time <= ?
+            ORDER BY ROWS_PRODUCED DESC
+            limit 10;
+    ''', params=[
+        start_date.strftime('%Y-%m-%d'),
+        end_date.strftime('%Y-%m-%d %H:%M:%S %Z')]
+    ).collect()
+
+
+def ten_largest_unloads(start_date, end_date):
+    session = get_active_session()
+
+    session.sql('''
+        INSERT INTO results.leads
+            SELECT QUERY_ID
+                , USER_NAME
+                , '10_largest_unloads' AS lead_name
+            FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+            where ROWS_UNLOADED is not NULL
+            and ROWS_UNLOADED > 0
+            and user_name not in ('WORKSHEETS_APP_USER', 'SNOWFLAKE', 'SYSTEM')
+            and start_time >= ? and start_time <= ?
+            ORDER BY ROWS_UNLOADED DESC
+            limit 10;
+    ''', params=[
+        start_date.strftime('%Y-%m-%d'),
+        end_date.strftime('%Y-%m-%d %H:%M:%S %Z')]
+    ).collect()
 
 
 SQL_THREAT_LEADS = [
@@ -75,14 +88,6 @@ SQL_THREAT_LEADS = [
         "mitre_technique_description": "Trusted Relationship",
         "description": "IOC Application Usage",
         "detect_fn": ioc_apps
-    },
-    {
-        "type": "sql",
-        "name": "least_common_applications_used",
-        "mitre_technique_id": "",
-        "mitre_technique_description": "Other",
-        "description": "Applications by prevelance",
-        "detect_fn": least_common_app
     }
 ]
 
@@ -107,7 +112,11 @@ def generate_leads_results(start_date, end_date):
         AND h.user_name not in ('WORKSHEETS_APP_USER', 'SNOWFLAKE', 'SYSTEM');
     ''', params=[start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d %H:%M:%S %Z')]).collect()
 
+    for lead in SQL_THREAT_LEADS:
+        detect_fn = lead['detect_fn']
+        detect_fn(start_date, end_date)
 
+@st.cache_data
 def get_results():
     session = get_active_session()
 

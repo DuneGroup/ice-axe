@@ -81,9 +81,8 @@ def main():
             )
 
             st.header('Unusual Apps')
-            # TODO
-            #unusual_apps = query_history_df.groupby('CLIENT_APPLICATION')['SESSION_ID'].nunique().reset_index(name='Session Count').sort_values('Session Count').head(10).reset_index(drop=True)
-            #st.dataframe(unusual_apps)
+            unusual_apps = metrics.query_history.least_common_app(start_date, end_date)
+            st.dataframe(unusual_apps)
 
     with user_activity_tab:
         # Level 2: Trends & Patterns
