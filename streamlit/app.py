@@ -48,8 +48,8 @@ def main():
 
         st.header("Filters")
         max_ts = metrics.query_history.max_analysis_end_time()
-        start_date = st.date_input('Start date', value=pd.to_datetime('today')-datetime.timedelta(days=7))
-        end_date = st.date_input('End date', value=pd.to_datetime('today'), max_value=max_ts)
+        start_date = st.date_input('Start date', value=max_ts-datetime.timedelta(days=7))
+        end_date = st.date_input('End date', value=max_ts, max_value=max_ts)
 
     analytics.leads.generate_leads_results(start_date, end_date)
     all_threats_df = analytics.leads.get_results()

@@ -99,6 +99,8 @@ def generate_leads_results(start_date, end_date):
 
     # TODO: we don't want to insert duplicate when start-end time are changed
     # or we need to change the logic to not insert duplicates
+    #session.sql()
+    session.sql('USE DATABASE ICEAXE').collect()
     session.sql('TRUNCATE TABLE results.leads').collect()
 
     session.sql('''
@@ -107,7 +109,7 @@ def generate_leads_results(start_date, end_date):
                , h.user_name
                , detector.lead_name
         from SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY h
-            , table(ice_axe_app.code_schema.detector(QUERY_ID, QUERY_TYPE, QUERY_TEXT))
+            , table(code_schema.detector(QUERY_ID, QUERY_TYPE, QUERY_TEXT))
         WHERE START_TIME >= ? AND START_TIME <= ?
         AND h.user_name not in ('WORKSHEETS_APP_USER', 'SNOWFLAKE', 'SYSTEM');
     ''', params=[start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d %H:%M:%S %Z')]).collect()
