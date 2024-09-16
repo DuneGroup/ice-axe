@@ -11,4 +11,11 @@ clean:
 dev:
 	streamlit run streamlit/app.py -- --dev true 
 
+devprep:
+	snowsql -c ICE_AXE -f stage.dev.sql
+	snowsql -c ICE_AXE -f create.dev.sql
+
+devclean:
+	snowsql -c ICE_AXE -f clean.dev.sql
+
 .PHONY: all clean
