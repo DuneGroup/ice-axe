@@ -99,8 +99,6 @@ def generate_leads_results(start_date, end_date):
 
     # TODO: we don't want to insert duplicate when start-end time are changed
     # or we need to change the logic to not insert duplicates
-    #session.sql()
-    session.sql('USE DATABASE ICEAXE').collect()
     session.sql('TRUNCATE TABLE results.leads').collect()
 
     session.sql('''
@@ -122,34 +120,59 @@ def generate_leads_results(start_date, end_date):
 def get_results():
     session = get_active_session()
 
-    leads_df = session.sql('''
-            select r.lead_name
-                , START_TIME
-                , h.USER_NAME
-                , s.authentication_method as SESSION_AUTH
-                , s.session_id
-                , l.reported_client_type as LOGIN_CLIENT_TYPE
-                , s.CLIENT_APPLICATION_ID AS SESSION_CLIENT_APP
-                , s.CLIENT_APPLICATION_VERSION AS SESSION_CLIENT_VERSION
-                , l.reported_client_version as LOGIN_CLIENT_VERSION
-                , s.CLIENT_ENVIRONMENT AS RAW_CLIENT_ENV
-                , PARSE_JSON(RAW_CLIENT_ENV) as CLIENT_ENV
-                , CLIENT_ENV:APPLICATION::STRING AS client_application
-                , CLIENT_ENV:OS::STRING AS client_os
-                , CLIENT_ENV:OS_VERSION::STRING AS client_os_version
-                , l.CLIENT_IP as LOGIN_IP
-                , l.event_timestamp as LOGIN_TIMESTAMP
-                , ROLE_NAME
-                , r.QUERY_ID
-                , QUERY_TYPE
-                , QUERY_TEXT
-                , execution_status
-            from results.leads r
-            left join SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY h on r.query_id = h.query_id
-            left JOIN SNOWFLAKE.ACCOUNT_USAGE.SESSIONS s on h.SESSION_ID = s.SESSION_ID
-            left join SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY l on s.LOGIN_EVENT_ID = l.EVENT_ID
-            and session_auth is not null // filter out snow generate sql queries that don't have a session id present in ACCOUNT_USAGE.SESSIONS
-            order by START_TIME DESC''').to_pandas(block=True)
+    session.sql(
+        '''
+        CALL code_schema.refresh_and_cluster_tables();
+        '''
+    ).collect()
+
+    leads_df = session.sql(
+        '''
+        WITH filtered_query_history AS (
+            SELECT query_id, user_name, session_id, query_type, query_text, execution_status, start_time
+            FROM view_query_history
+            WHERE query_id IN (SELECT query_id FROM results.leads)
+        ),
+        filtered_sessions AS (
+            SELECT session_id, authentication_method, client_application_id, client_application_version, client_environment, login_event_id
+            FROM view_sessions
+            WHERE authentication_method IS NOT NULL
+        ),
+        filtered_login_history AS (
+            SELECT event_id, reported_client_type, reported_client_version, client_ip, event_timestamp
+            FROM view_login_history
+            WHERE event_id IN (SELECT login_event_id FROM filtered_sessions)
+        )
+        SELECT r.lead_name
+            , h.start_time
+            , h.user_name
+            , s.authentication_method AS session_auth
+            , s.session_id
+            , l.reported_client_type AS login_client_type
+            , s.client_application_id AS session_client_app
+            , s.client_application_version AS session_client_version
+            , l.reported_client_version AS login_client_version
+            , s.client_environment AS raw_client_env
+            , PARSE_JSON(s.client_environment) AS client_env
+            , client_env:application::STRING AS client_application
+            , client_env:os::STRING AS client_os
+            , client_env:os_version::STRING AS client_os_version
+            , l.client_ip AS login_ip
+            , l.event_timestamp AS login_timestamp
+            , r.query_id
+            , h.query_type
+            , h.query_text
+            , h.execution_status
+        FROM results.leads r
+        LEFT JOIN filtered_query_history h 
+            ON r.query_id = h.query_id
+        LEFT JOIN filtered_sessions s 
+            ON h.session_id = s.session_id
+        LEFT JOIN filtered_login_history l
+            ON s.login_event_id = l.event_id
+        ORDER BY h.start_time DESC;
+        '''
+        ).to_pandas(block=True)
 
     return leads_df
 
