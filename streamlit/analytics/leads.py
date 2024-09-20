@@ -126,6 +126,15 @@ def get_results():
         '''
     ).collect()
 
+
+    #TODO to really paginate this we have to query each lead type separately, otherwise we are 
+    # truncating a table that contains results for all lead types which is not what we want to show
+    # the user. So, we should have something like:
+    # for lead in SQL_THREAT_LEADS:
+    # ... get a paginated lead df ....
+    # now the issue that will come up is how do you get the next page for each df ... in that scenario it might
+    # make sense to move this logic into the app, and just provide APIs here that let it do something like:
+    #   fetch_paginated_lead_df(lead_name, page_number)
     leads_df = session.sql(
         '''
         WITH filtered_query_history AS (
@@ -170,7 +179,8 @@ def get_results():
             ON h.session_id = s.session_id
         LEFT JOIN filtered_login_history l
             ON s.login_event_id = l.event_id
-        ORDER BY h.start_time DESC;
+        ORDER BY h.start_time DESC
+        LIMIT 3000;
         '''
         ).to_pandas(block=True)
 
