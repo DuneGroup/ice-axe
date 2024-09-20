@@ -1,7 +1,7 @@
 manifest_version: 1
 version:
   name: ice_axe
-  label: "v1.0"
+  label: "v1.5"
   comment: "Ice Axe"
 
 artifacts:
